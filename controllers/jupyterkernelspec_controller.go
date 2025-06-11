@@ -25,10 +25,11 @@ import (
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 
 	"github.com/tkestack/elastic-jupyter-operator/api/v1alpha1"
-	kubeflowtkestackiov1alpha1 "github.com/tkestack/elastic-jupyter-operator/api/v1alpha1"
 	"github.com/tkestack/elastic-jupyter-operator/pkg/kernelspec"
+	appsv1 "k8s.io/api/apps/v1"
 )
 
 // JupyterKernelSpecReconciler reconciles a JupyterKernelSpec object
@@ -42,13 +43,12 @@ type JupyterKernelSpecReconciler struct {
 // +kubebuilder:rbac:groups=kubeflow.tkestack.io,resources=jupyterkernelspecs,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=kubeflow.tkestack.io,resources=jupyterkernelspecs/status,verbs=get;update;patch
 
-func (r *JupyterKernelSpecReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
-	_ = context.Background()
-	_ = r.Log.WithValues("jupyterkernelspec", req.NamespacedName)
+func (r *JupyterKernelSpecReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	log := r.Log.WithValues("jupyterkernelspec", req.NamespacedName)
 
 	original := &v1alpha1.JupyterKernelSpec{}
 
-	err := r.Get(context.TODO(), req.NamespacedName, original)
+	err := r.Client.Get(ctx, req.NamespacedName, original)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Object not found, return.  Created objects are automatically garbage collected.
@@ -56,12 +56,12 @@ func (r *JupyterKernelSpecReconciler) Reconcile(req ctrl.Request) (ctrl.Result, 
 			return ctrl.Result{}, nil
 		}
 		// Error reading the object - requeue the request.
-		r.Log.Error(err, "Failed to get the object, requeuing the request")
+		log.Error(err, "Failed to get the object, requeuing the request")
 		return ctrl.Result{}, err
 	}
 	instance := original.DeepCopy()
 
-	gr, err := kernelspec.NewReconciler(r.Client, r.Log, r.Recorder, r.Scheme, instance)
+	gr, err := kernelspec.NewReconciler(r.Client, log, r.Recorder, r.Scheme, instance)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -74,6 +74,9 @@ func (r *JupyterKernelSpecReconciler) Reconcile(req ctrl.Request) (ctrl.Result, 
 
 func (r *JupyterKernelSpecReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&kubeflowtkestackiov1alpha1.JupyterKernelSpec{}).
+		For(&v1alpha1.JupyterKernelSpec{}).
+		Watches(
+			&appsv1.Deployment{},
+			handler.EnqueueRequestForOwner(mgr.GetScheme(), mgr.GetRESTMapper(), &v1alpha1.JupyterKernelSpec{})).
 		Complete(r)
 }

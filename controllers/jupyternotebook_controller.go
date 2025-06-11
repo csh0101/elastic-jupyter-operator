@@ -27,10 +27,8 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/tkestack/elastic-jupyter-operator/api/v1alpha1"
-	kubeflowtkestackiov1alpha1 "github.com/tkestack/elastic-jupyter-operator/api/v1alpha1"
 	"github.com/tkestack/elastic-jupyter-operator/pkg/notebook"
 )
 
@@ -45,13 +43,12 @@ type JupyterNotebookReconciler struct {
 // +kubebuilder:rbac:groups=kubeflow.tkestack.io,resources=jupyternotebooks,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=kubeflow.tkestack.io,resources=jupyternotebooks/status,verbs=get;update;patch
 
-func (r *JupyterNotebookReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
-	_ = context.Background()
-	_ = r.Log.WithValues("jupyternotebook", req.NamespacedName)
+func (r *JupyterNotebookReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	log := r.Log.WithValues("jupyternotebook", req.NamespacedName)
 
 	original := &v1alpha1.JupyterNotebook{}
 
-	err := r.Get(context.TODO(), req.NamespacedName, original)
+	err := r.Client.Get(ctx, req.NamespacedName, original)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Object not found, return.  Created objects are automatically garbage collected.
@@ -59,12 +56,12 @@ func (r *JupyterNotebookReconciler) Reconcile(req ctrl.Request) (ctrl.Result, er
 			return ctrl.Result{}, nil
 		}
 		// Error reading the object - requeue the request.
-		r.Log.Error(err, "Failed to get the object, requeuing the request")
+		log.Error(err, "Failed to get the object, requeuing the request")
 		return ctrl.Result{}, err
 	}
 	instance := original.DeepCopy()
 
-	gr, err := notebook.NewReconciler(r.Client, r.Log, r.Recorder, r.Scheme, instance)
+	gr, err := notebook.NewReconciler(r.Client, log, r.Recorder, r.Scheme, instance)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -76,11 +73,8 @@ func (r *JupyterNotebookReconciler) Reconcile(req ctrl.Request) (ctrl.Result, er
 
 func (r *JupyterNotebookReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&kubeflowtkestackiov1alpha1.JupyterNotebook{}).
-		Watches(&source.Kind{Type: &appsv1.Deployment{}},
-			&handler.EnqueueRequestForOwner{
-				IsController: true,
-				OwnerType:    &v1alpha1.JupyterNotebook{},
-			}).
+		For(&v1alpha1.JupyterNotebook{}).
+		Watches(&appsv1.Deployment{},
+			handler.EnqueueRequestForOwner(mgr.GetScheme(), mgr.GetRESTMapper(), &v1alpha1.JupyterNotebook{})).
 		Complete(r)
 }

@@ -16,7 +16,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
-	"sigs.k8s.io/controller-runtime/pkg/envtest/printer"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -47,9 +46,7 @@ const (
 func TestAPIs(t *testing.T) {
 	RegisterFailHandler(Fail)
 
-	RunSpecsWithDefaultAndCustomReporters(t,
-		"Noteboook Suite",
-		[]Reporter{printer.NewlineReporter{}})
+	RunSpecs(t, "Notebook Suite")
 }
 
 var _ = BeforeSuite(func(done Done) {
@@ -127,7 +124,7 @@ var _ = Describe("JupyterNotebook controller", func() {
 			Eventually(func() string {
 				actual := &kubeflowtkestackiov1alpha1.JupyterNotebook{}
 				if err := k8sClient.Get(context.Background(),
-					types.NamespacedName{Name: notebookWithTemplate.GetName(), Namespace: notebookWithTemplate.GetNamespace()}, actual); err == nil {
+					types.NamespacedName{Name: notebookWithTemplate.Name, Namespace: notebookWithTemplate.Namespace}, actual); err == nil {
 					return actual.Spec.Template.Spec.Containers[0].Name
 				}
 				return ""

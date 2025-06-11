@@ -26,6 +26,8 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	kubeflowtkestackiov1alpha1 "github.com/tkestack/elastic-jupyter-operator/api/v1alpha1"
 	"github.com/tkestack/elastic-jupyter-operator/controllers"
@@ -57,8 +59,8 @@ func main() {
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:             scheme,
-		MetricsBindAddress: metricsAddr,
-		Port:               9443,
+		Metrics:            metricsserver.Options{BindAddress: metricsAddr},
+		WebhookServer:      webhook.NewServer(webhook.Options{Port: 9443}),
 		LeaderElection:     enableLeaderElection,
 		LeaderElectionID:   "82ec55e3.kubeflow.tkestack.io",
 	})

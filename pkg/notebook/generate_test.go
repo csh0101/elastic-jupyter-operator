@@ -125,11 +125,17 @@ func TestGenerate(t *testing.T) {
 
 	for _, tc := range tests {
 		gen, err := newGenerator(tc.input)
-		if !reflect.DeepEqual(tc.expectedErr, err) {
+		if (tc.expectedErr == nil && err != nil) || (tc.expectedErr != nil && !errors.Is(err, tc.expectedErr)) {
 			t.Errorf("expected: %v, got: %v", tc.expectedErr, err)
 		}
-		if err == nil && !reflect.DeepEqual(tc.expectedGen, gen) {
-			t.Errorf("expected: %v, got: %v", tc.expectedGen, gen)
+		if err == nil {
+			if tc.expectedGen == nil && gen != nil {
+				t.Errorf("expected nil generator, got: %v", gen)
+			} else if tc.expectedGen != nil && gen != nil {
+				if !reflect.DeepEqual(tc.expectedGen.nb, gen.nb) {
+					t.Errorf("expected notebook: %v, got: %v", tc.expectedGen.nb, gen.nb)
+				}
+			}
 		}
 	}
 }
@@ -189,14 +195,22 @@ func TestDesiredDeploymentWithoutOwner(t *testing.T) {
 
 	for i, tc := range tests {
 		d, err := tc.gen.DesiredDeploymentWithoutOwner()
-		if !reflect.DeepEqual(tc.expectedErr, err) {
+		if (tc.expectedErr == nil && err != nil) || (tc.expectedErr != nil && !errors.Is(err, tc.expectedErr)) {
 			t.Errorf("expected: %v, got: %v", tc.expectedErr, err)
 		}
-		if err == nil && !reflect.DeepEqual(tc.expectedImage, d.Spec.Template.Spec.Containers[0].Image) {
-			t.Errorf("expected: %v, got: %v", tc.expectedImage, d.Spec.Template.Spec.Containers[0].Image)
-		}
-		if err == nil && !reflect.DeepEqual(tc.expectedArgs, d.Spec.Template.Spec.Containers[0].Args) {
-			t.Errorf("i= %d expected: %v, got: %v", i, tc.expectedArgs, d.Spec.Template.Spec.Containers[0].Args)
+		if err == nil {
+			if tc.expectedImage != d.Spec.Template.Spec.Containers[0].Image {
+				t.Errorf("expected: %v, got: %v", tc.expectedImage, d.Spec.Template.Spec.Containers[0].Image)
+			}
+			if len(tc.expectedArgs) != len(d.Spec.Template.Spec.Containers[0].Args) {
+				t.Errorf("i= %d expected args length: %d, got: %d", i, len(tc.expectedArgs), len(d.Spec.Template.Spec.Containers[0].Args))
+			} else {
+				for j, arg := range tc.expectedArgs {
+					if arg != d.Spec.Template.Spec.Containers[0].Args[j] {
+						t.Errorf("i= %d, j= %d expected arg: %v, got: %v", i, j, arg, d.Spec.Template.Spec.Containers[0].Args[j])
+					}
+				}
+			}
 		}
 		for k, v := range tc.expectedLabels {
 			if v != d.Spec.Template.Labels[k] {

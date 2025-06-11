@@ -27,7 +27,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/tkestack/elastic-jupyter-operator/api/v1alpha1"
 	kubeflowtkestackiov1alpha1 "github.com/tkestack/elastic-jupyter-operator/api/v1alpha1"
@@ -48,13 +47,12 @@ type JupyterGatewayReconciler struct {
 // +kubebuilder:rbac:groups="",resources=pods;namespaces;services;serviceaccounts;configmaps;secrets;persistentvolumes;persistentvolumeclaims;events,verbs=get;list;watch;create;update;create;patch;delete
 // +kubebuilder:rbac:groups="rbac.authorization.k8s.io",resources=rolebindings,verbs=get;create;update;patch;list;watch;delete
 
-func (r *JupyterGatewayReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
-	_ = context.Background()
-	_ = r.Log.WithValues("jupytergateway", req.NamespacedName)
+func (r *JupyterGatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	log := r.Log.WithValues("jupytergateway", req.NamespacedName)
 
 	original := &v1alpha1.JupyterGateway{}
 
-	err := r.Get(context.TODO(), req.NamespacedName, original)
+	err := r.Client.Get(ctx, req.NamespacedName, original)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Object not found, return.  Created objects are automatically garbage collected.
@@ -62,12 +60,12 @@ func (r *JupyterGatewayReconciler) Reconcile(req ctrl.Request) (ctrl.Result, err
 			return ctrl.Result{}, nil
 		}
 		// Error reading the object - requeue the request.
-		r.Log.Error(err, "Failed to get the object, requeuing the request")
+		log.Error(err, "Failed to get the object, requeuing the request")
 		return ctrl.Result{}, err
 	}
 	instance := original.DeepCopy()
 
-	gr, err := gateway.NewReconciler(r.Client, r.Log, r.Recorder, r.Scheme, instance)
+	gr, err := gateway.NewReconciler(r.Client, log, r.Recorder, r.Scheme, instance)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -80,10 +78,8 @@ func (r *JupyterGatewayReconciler) Reconcile(req ctrl.Request) (ctrl.Result, err
 func (r *JupyterGatewayReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&kubeflowtkestackiov1alpha1.JupyterGateway{}).
-		Watches(&source.Kind{Type: &appsv1.Deployment{}},
-			&handler.EnqueueRequestForOwner{
-				IsController: true,
-				OwnerType:    &v1alpha1.JupyterGateway{},
-			}).
+		Watches(
+			&appsv1.Deployment{},
+			handler.EnqueueRequestForOwner(mgr.GetScheme(), mgr.GetRESTMapper(), &v1alpha1.JupyterGateway{})).
 		Complete(r)
 }

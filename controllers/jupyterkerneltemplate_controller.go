@@ -37,7 +37,7 @@ type JupyterKernelTemplateReconciler struct {
 // +kubebuilder:rbac:groups=kubeflow.tkestack.io,resources=jupyterkerneltemplates,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=kubeflow.tkestack.io,resources=jupyterkerneltemplates/status,verbs=get;update;patch
 
-func (r *JupyterKernelTemplateReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
+func (r *JupyterKernelTemplateReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	_ = context.Background()
 	_ = r.Log.WithValues("jupyterkerneltemplate", req.NamespacedName)
 
